@@ -347,6 +347,176 @@ var CoverageChartGenerator = function () {
         }
     };
 
+    this.generateRelativeSummaryChart = function (results, id, title, subTitle) {
+        var childSummaryChartDiv = document.getElementById(id);
+        if (!childSummaryChartDiv) {
+            return;
+        }
+        var defaultRange = [0, 100];
+        var r = filterChildren(results, defaultRange);
+        if (r.children.length === 0) {
+            defaultRange = [0, 100];
+            r = filterChildren(results, defaultRange);
+        }
+        var metrics = r.metrics;
+        var children = r.children;
+        var data = r.data;
+
+        var height = children.length * 32 + 120;
+        if (height < 180) {
+            height = 180;
+        }
+        childSummaryChartDiv.style.height = height + "px";
+        var childSummaryChart = echarts.init(childSummaryChartDiv);
+
+        var childSummaryChartOption = {
+            title: {
+                text: title,
+                subtext: subTitle
+            },
+            tooltip: {
+                position: 'top',
+                formatter: function (obj) {
+                    var childName = children[obj.value[1]];
+                    var ratio = results[childName][obj.value[0]].ratio;
+                    var coveredString = ratio.numerator + "/" + ratio.denominator;
+                    return '<b>' + childName + '</b>:' + obj.name + '<br/>' + obj.value[2] + '% (' + coveredString + ')<br/> ';
+                }
+            },
+            toolbox: {
+                show: true,
+                feature: {
+                    saveAsImage: {
+                        title: 'Save as image'
+                    }
+                },
+                bottom: 0
+            },
+            animation: false,
+            grid: {
+                top: '60',
+                left: '0%',
+                y: '10%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'category',
+                data: metrics,
+                position: 'top',
+                splitArea: {
+                    show: true
+                },
+                axisLine: {
+                    show: false
+                },
+                axisTick: {
+                    show: false
+                },
+                axisLabel: {
+                    interval: 0,
+                    fontWeight: 'bold'
+                }
+            },
+            yAxis: {
+                type: 'category',
+                data: children,
+                inverse: true,
+                position: 'right',
+                splitArea: {
+                    show: true
+                },
+                axisLine: {
+                    show: false
+                },
+                axisTick: {
+                    show: false
+                },
+                triggerEvent: true,
+                axisLabel: {
+                    interval: 0,
+                    fontSize: 13,
+                    formatter: function (value) {
+                        if (value.length > 70) {
+                            return value.substring(0, 70) + '...';
+                        }
+                        return value;
+                    }
+                }
+            },
+            visualMap: {
+                min: 0,
+                max: 100,
+                range: defaultRange,
+                calculable: true,
+                orient: 'horizontal',
+                left: 'right',
+                top: 'top',
+                inRange: {
+                    color: ['#d55e00', '#009e73']
+                }
+            },
+            series: [{
+                name: 'Coverage',
+                type: 'heatmap',
+                data: data,
+                label: {
+                    normal: {
+                        show: true,
+                        formatter: function (obj) {
+                            return obj.data[2] + '%';
+                        }
+                    }
+                },
+                itemStyle: {
+                    emphasis: {
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(0, 0, 0, 0.5)'
+                    }
+                }
+            }]
+        };
+
+        childSummaryChart.setOption(childSummaryChartOption);
+        // childSummaryChart.on('click', function (params) {
+        //     if (params.componentType === 'yAxis') {
+        //         window.location.href = transformURL(params.value);
+        //     }
+        // });
+
+        childSummaryChart.on('datarangeselected', function (params) {
+
+
+            var r = filterChildren(results, params.selected);
+            var children = r.children;
+            var data = r.data;
+
+
+            if (children.length !== 0) {
+                childSummaryChartOption.series[0].data = data;
+            } else {
+                childSummaryChartOption.series[0].data = null;
+            }
+
+            childSummaryChartOption.visualMap.range = [params.selected[0], params.selected[1]];
+            childSummaryChartOption.yAxis.data = children;
+
+            var height = children.length * 32 + 120;
+            if (height < 180) {
+                height = 180;
+            }
+            childSummaryChartDiv.style.height = height + "px";
+
+            var childSummaryChart = echarts.init(childSummaryChartDiv);
+
+            childSummaryChart.setOption(childSummaryChartOption);
+            childSummaryChart.resize();
+        });
+
+        window.onresize = function () {
+            childSummaryChart.resize();
+        }
+    };
+
     this.generateTrendChart = function (results, id) {
         var trendChartDiv = document.getElementById(id);
         if (!trendChartDiv) {

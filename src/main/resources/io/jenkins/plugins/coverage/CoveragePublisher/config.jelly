@@ -29,6 +29,7 @@
             </f:repeatableProperty>
         </f:entry>
         <f:property field="sourceFileResolver" propertyDescriptor="${descriptor.getSourceFileResolverDescriptor()}"/>
+        <f:property field="sourceFileCoverageAnalysisResolver" propertyDescriptor="${descriptor.getRelativeCoverageSummaryLevelDescriptor()}"/>
 
     </f:advanced>
 </j:jelly>

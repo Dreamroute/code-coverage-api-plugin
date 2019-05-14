@@ -12,6 +12,7 @@ import io.jenkins.plugins.coverage.adapter.CoverageReportAdapterDescriptor;
 import io.jenkins.plugins.coverage.detector.Detectable;
 import io.jenkins.plugins.coverage.detector.ReportDetector;
 import io.jenkins.plugins.coverage.exception.CoverageException;
+import io.jenkins.plugins.coverage.source.SourceFileCoverageAnalysisResolver;
 import io.jenkins.plugins.coverage.source.SourceFileResolver;
 import io.jenkins.plugins.coverage.targets.*;
 import io.jenkins.plugins.coverage.threshold.Threshold;
@@ -71,6 +72,8 @@ public class CoverageProcessor {
 
     private SourceFileResolver sourceFileResolver;
 
+    private SourceFileCoverageAnalysisResolver sourceFileCoverageAnalysisResolver;
+
     /**
      * @param run       a build this is running as a part of
      * @param workspace a workspace to use for any file operations
@@ -115,6 +118,17 @@ public class CoverageProcessor {
             }
 
             sourceFileResolver.resolveSourceFiles(run, workspace, listener, coverageReport.getPaintedSources());
+        }
+
+        if (this.sourceFileCoverageAnalysisResolver != null) {
+            FilePath rootFilePath = workspace.child(sourceFileCoverageAnalysisResolver.getRootPath());
+            if (!rootFilePath.exists()) {
+                listener.getLogger().printf("VCS root path not exists. path: %s", rootFilePath.getRemote());
+            } else {
+                CoverageSourceFileAnalysis sourceAnalysis = this.sourceFileCoverageAnalysisResolver.resolveCoverageSourceFileVCS(run, workspace, listener, rootFilePath.getRemote(), sourceFileCoverageAnalysisResolver);
+                coverageReport.setCoverageSourceFileAnalysis(sourceAnalysis);
+                coverageReport.getCsfaReport();
+            }
         }
 
         if (calculateDiffForChangeRequests) {
@@ -625,6 +639,13 @@ public class CoverageProcessor {
         this.applyThresholdRecursively = applyThresholdRecursively;
     }
 
+    public SourceFileCoverageAnalysisResolver getSourceFileCoverageAnalysisResolver() {
+        return sourceFileCoverageAnalysisResolver;
+    }
+
+    public void setSourceFileCoverageAnalysisResolver(SourceFileCoverageAnalysisResolver sourceFileCoverageAnalysisResolver) {
+        this.sourceFileCoverageAnalysisResolver = sourceFileCoverageAnalysisResolver;
+    }
     /**
      * Getter for property 'calculateDiffForChangeRequests'
      *

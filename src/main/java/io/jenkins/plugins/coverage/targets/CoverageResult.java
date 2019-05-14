@@ -40,7 +40,17 @@ import org.kohsuke.stapler.export.ExportedBean;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 
@@ -97,6 +107,10 @@ public class CoverageResult implements Serializable, Chartable {
     private String relativeSourcePath;
 
     private Map<String, Set<String>> additionalProperties = new HashMap<>();
+
+    private CoverageSourceFileAnalysis coverageSourceFileAnalysis;
+
+    private List<CoverageRelativeResultElement> csfaReport = null;
 
     public transient Run<?, ?> owner = null;
 
@@ -302,6 +316,17 @@ public class CoverageResult implements Serializable, Chartable {
     }
 
     /**
+     * @return collect all children result and sub node's children result.
+     */
+    public List<CoverageResult> getChildrenResults() {
+        List<CoverageResult> list = new LinkedList<>(this.children.values());
+        for (CoverageResult sub : this.children.values()) {
+            list.addAll(sub.getChildrenResults());
+        }
+        return list;
+    }
+
+    /**
      * Getter for property 'childElements'.
      *
      * @return Value for property 'childElements'.
@@ -425,6 +450,10 @@ public class CoverageResult implements Serializable, Chartable {
         return aggregateResults.get(element);
     }
 
+    public Ratio getAbsoluteCodeCoverage() {
+        return aggregateResults.get(CoverageElement.LINE)
+                .add(aggregateResults.get(CoverageElement.CONDITIONAL));
+    }
 
     public Set<CoverageElement> getElements() {
         return Collections.unmodifiableSet(
@@ -549,6 +578,8 @@ public class CoverageResult implements Serializable, Chartable {
                 return new RestResultWrapper(new CoverageTrendTree(getName(), getCoverageTrends(), getChildrenReal()));
             } else if (token.equals("result")) {
                 return new RestResultWrapper(this);
+            } else if (token.equals("relative")) {
+                return new RestResultWrapper(this.getCoverageRelativeResult(req));
             }
         }
 
@@ -677,6 +708,79 @@ public class CoverageResult implements Serializable, Chartable {
         return results;
     }
 
+    public List<CoverageRelativeResultElement> getCsfaReport() {
+        CoverageSourceFileAnalysis csfa = this.coverageSourceFileAnalysis;
+        if (null == csfaReport && csfa != null) {
+            this.csfaReport = csfa.getCoverageRelativeResultElement(this);
+        }
+        return this.csfaReport == null
+                ? Collections.emptyList()
+                : csfaReport;
+    }
+
+    public CoverageRelativeResult getCoverageRelativeResult(StaplerRequest req) {
+        CoverageSourceFileAnalysis csfa = this.coverageSourceFileAnalysis;
+        List<CoverageRelativeResultElement> list;
+        if (null == csfa) {
+            list = Collections.emptyList();
+        } else if (req.hasParameter("old") && req.hasParameter("new")) {
+            String oldCommit = req.getParameter("old");
+            String newCommit = req.getParameter("new");
+            String rootPath = req.hasParameter("root") ? req.getParameter("level") : csfa.getRootPath();
+            CoverageElement level = req.hasParameter("level") ? CoverageElement.get(req.getParameter("level")) : CoverageElement.CONDITIONAL;
+            list = csfa.analysisGitCommitImpl(this, rootPath, level, oldCommit, newCommit);
+        } else {
+            list = getCsfaReport();
+        }
+        return new CoverageRelativeResult(this.name, list);
+    }
+
+    @JavaScriptMethod
+    @SuppressWarnings("unused")
+    public JSRelativeCoverageResult jsGetCoverageRelativeResult() {
+        final CoverageSourceFileAnalysis csfa = this.coverageSourceFileAnalysis;
+        if (null == csfa)
+            return null;
+        Map<String, List<JSCoverageResult>> results = getCsfaReport()
+                .stream()
+                .collect(Collectors.toMap(CoverageRelativeResultElement::getFilePath,
+                        o -> o.getResults()
+                                .entrySet()
+                                .stream()
+                                .map(e -> new JSCoverageResult(e.getKey().getName(), e.getValue()))
+                                .collect(Collectors.toList())
+                        )
+                );
+        String title = csfa.getBranchCommitName() + " - " + csfa.getTargetBranchCommitName(this);
+        return new JSRelativeCoverageResult(title, results);
+    }
+
+    public CoverageSourceFileAnalysis getCoverageSourceFileAnalysis() {
+        return coverageSourceFileAnalysis;
+    }
+
+    public void setCoverageSourceFileAnalysis(CoverageSourceFileAnalysis coverageSourceFileAnalysis) {
+        this.coverageSourceFileAnalysis = coverageSourceFileAnalysis;
+    }
+
+    public static class JSRelativeCoverageResult {
+
+        private String title;
+        private Map<String, List<JSCoverageResult>> results;
+
+        public JSRelativeCoverageResult(String title, Map<String, List<JSCoverageResult>> results) {
+            this.title = title;
+            this.results = results;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public Map<String, List<JSCoverageResult>> getResults() {
+            return results;
+        }
+    }
 
     public static class JSCoverageResult {
         private String name;
