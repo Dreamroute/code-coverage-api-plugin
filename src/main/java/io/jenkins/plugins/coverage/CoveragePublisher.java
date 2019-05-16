@@ -19,6 +19,7 @@ import io.jenkins.plugins.coverage.adapter.CoverageReportAdapter;
 import io.jenkins.plugins.coverage.detector.ReportDetector;
 import io.jenkins.plugins.coverage.exception.CoverageException;
 import io.jenkins.plugins.coverage.source.DefaultSourceFileResolver;
+import io.jenkins.plugins.coverage.source.SourceFileCoverageAnalysisResolver;
 import io.jenkins.plugins.coverage.source.SourceFileResolver;
 import io.jenkins.plugins.coverage.threshold.Threshold;
 import jenkins.tasks.SimpleBuildStep;
@@ -49,7 +50,7 @@ public class CoveragePublisher extends Recorder implements SimpleBuildStep {
 
     private String tag;
 
-    private String vcsRootPath;
+    private SourceFileCoverageAnalysisResolver sourceFileCoverageAnalysisResolver;
 	
     private boolean calculateDiffForChangeRequests = false;
 
@@ -88,7 +89,7 @@ public class CoveragePublisher extends Recorder implements SimpleBuildStep {
         processor.setFailUnhealthy(failUnhealthy);
         processor.setFailUnstable(failUnstable);
         processor.setFailNoReports(failNoReports);
-        processor.setVcsRootPath(vcsRootPath);
+        processor.setSourceFileCoverageAnalysisResolver(sourceFileCoverageAnalysisResolver);
 
         try {
             processor.performCoverageReport(reportAdapters, reportDetectors, globalThresholds);
@@ -171,13 +172,13 @@ public class CoveragePublisher extends Recorder implements SimpleBuildStep {
         this.tag = tag;
     }
 
-    public String getVcsRootPath() {
-        return this.vcsRootPath;
+    public SourceFileCoverageAnalysisResolver getSourceFileCoverageAnalysisResolver() {
+        return sourceFileCoverageAnalysisResolver;
     }
 
     @DataBoundSetter
-    public void setVcsRootPath(String vcsRootPath) {
-        this.vcsRootPath = vcsRootPath;
+    public void setSourceFileCoverageAnalysisResolver(SourceFileCoverageAnalysisResolver sourceFileCoverageAnalysisResolver) {
+        this.sourceFileCoverageAnalysisResolver = sourceFileCoverageAnalysisResolver;
     }
     public boolean getCalculateDiffForChangeRequests() {
         return calculateDiffForChangeRequests;
@@ -214,6 +215,10 @@ public class CoveragePublisher extends Recorder implements SimpleBuildStep {
         @SuppressWarnings("unchecked")
         public Descriptor<SourceFileResolver> getSourceFileResolverDescriptor() {
             return new DefaultSourceFileResolver.DefaultSourceFileResolverDescriptor();
+        }
+
+        public Descriptor<SourceFileCoverageAnalysisResolver> getSourceFileCoverageAnalysisResolverDescriptor() {
+            return new SourceFileCoverageAnalysisResolver.SourceFileCoverageAnalysisResolverDescriptor();
         }
 
         @Override
