@@ -28,8 +28,7 @@
                             var coverageChartGenerator = new CoverageChartGenerator()
                             instance.getCoverageRelativeResult(function(t) {
                                 var rd = t.responseObject();
-                                var title = "Compare [" + rd.branch + ":" + rd.commit + "] With [" + rd.targetBranch + ":" + rd.targetCommit + "]";
-                                coverageChartGenerator.generateSummaryChart(rd.results, 'relativeSummaryChart', title)
+                                coverageChartGenerator.generateRelativeSummaryChart(rd.results, 'relativeSummaryChart', "Relative Summary", rd.title)
                             });
                         </script>
                     </j:if>

@@ -9,7 +9,9 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -71,9 +73,20 @@ public class CoverageSourceFileAnalysis implements Serializable {
         return lastCommitName;
     }
 
+    public String getBranchCommitName() {
+        return branchName + ":" + lastCommitName.substring(0, 8);
+    }
+
+    public String getTargetBranchCommitName(CoverageResult current) {
+        CoverageSourceFileAnalysis targetVcs = resolveTargetVCS(current);
+        if (targetVcs == null)
+            return "";
+        return targetVcs.getBranchCommitName();
+    }
+
     public String getTargetLastCommitName(CoverageResult current) {
         CoverageSourceFileAnalysis vcs = resolveTargetVCS(current);
-        return vcs == null ? null : vcs.getLastCommitName();
+        return vcs == null ? "" : vcs.getLastCommitName();
     }
 
     public CoverageSourceFileAnalysis resolveTargetVCS(CoverageResult current) {
@@ -116,7 +129,21 @@ public class CoverageSourceFileAnalysis implements Serializable {
                                     .flatMapToInt(block -> IntStream.rangeClosed((int) (block.getStartLine() + 1), (int) block.getEndLine())
                                             .filter(line -> cr.getPaint().isPainted(line))
                                     ).toArray();
-                            return new CoverageRelativeResultElement(cr.getRelativeSourcePath(), analysisCoverageByLevel(cr.getPaint(), csfa.getLevel(), lines));
+                            //  absolute coverage
+                            Map<CoverageElement, Ratio> results = new TreeMap<>();
+                            Ratio crHitRatio = analysisLogicHitCoverage(cr.getPaint(), csfa.getLevel(), cr.getPaint().lines.keys());
+                            results.put(CoverageElement.ABSOLUTE, crHitRatio);
+                            //  newly code coverage
+                            results.put(CoverageElement.RELATIVE, analysisLogicHitCoverage(cr.getPaint(), csfa.getLevel(), lines));
+                            //  coverage change
+                            CoverageResult pr = cr.getPreviousResult();
+                            if (pr != null) {
+                                Ratio prHitRatio = analysisLogicHitCoverage(pr.getPaint(), csfa.getLevel(), pr.getPaint().lines.keys());
+                                if (prHitRatio.numerator != 0.0F) {
+                                    results.put(CoverageElement.CHANGE, Ratio.create(crHitRatio.getPercentageFloat() - prHitRatio.getPercentageFloat(), 100.0F));
+                                }
+                            }
+                            return new CoverageRelativeResultElement(cr.getName(), cr.getRelativeSourcePath(), results);
                         })
                         .orElse(null)
                 )
@@ -127,28 +154,39 @@ public class CoverageSourceFileAnalysis implements Serializable {
     /**
      * calculate code coverage by analysis level.
      */
-    private Ratio analysisCoverageByLevel(CoveragePaint paint, CoverageElement level, int[] sourceCodeBlockLines) {
+    private Ratio analysisLogicHitCoverage(CoveragePaint paint, CoverageElement level, int[] judgedLines) {
         if (CoverageElement.LINE.equals(level)) {
-            long missed = Arrays.stream(sourceCodeBlockLines).filter(line -> paint.getHits(line) <= 0).count();
-            long covered = Arrays.stream(sourceCodeBlockLines).filter(line -> paint.getHits(line) > 0).count();
-            return Ratio.create(covered, missed + covered);
+            long covered = Arrays.stream(judgedLines)
+                    .parallel()
+                    .filter(line -> paint.getHits(line) > 0)
+                    .count();
+            return Ratio.create(covered, judgedLines.length);
         } else {
-            //  analysis with [Conditional]
-            long missedBranch = Arrays.stream(sourceCodeBlockLines).map(line -> {
-                int covered = paint.getBranchCoverage(line);
-                if (covered <= 0 && paint.getHits(line) > 0)
-                    return 1;
-                else
-                    return paint.getBranchTotal(line) - covered;
-            }).sum();
-            long coveredBranch = Arrays.stream(sourceCodeBlockLines).map(line -> {
-                int covered = paint.getBranchCoverage(line);
-                if (covered <= 0 && paint.getHits(line) > 0)
-                    return 1;
-                else
-                    return covered;
-            }).sum();
-            return Ratio.create(missedBranch, coveredBranch + missedBranch);
+            //  the covered logic hit means:
+            //  1. when line don't have any logic branch, if hit count > 0, logic hit is 1, otherwise logic hit equals 0
+            //  2. when line have logic branch, logic hit is branch coverage
+            //
+            long missedBranch = Arrays.stream(judgedLines)
+                    .parallel()
+                    .map(line -> {
+                        int covered = paint.getBranchCoverage(line);
+                        if (covered <= 0 && paint.getHits(line) > 0)
+                            return 0;
+                        else
+                            return paint.getBranchTotal(line) - covered;
+                    })
+                    .sum();
+            long coveredBranch = Arrays.stream(judgedLines)
+                    .parallel()
+                    .map(line -> {
+                        int covered = paint.getBranchCoverage(line);
+                        if (covered <= 0 && paint.getHits(line) > 0)
+                            return 1;
+                        else
+                            return covered;
+                    })
+                    .sum();
+            return Ratio.create(coveredBranch, coveredBranch + missedBranch);
         }
     }
 }

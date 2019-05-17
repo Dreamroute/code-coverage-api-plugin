@@ -674,11 +674,18 @@ public class CoverageResult implements Serializable, Chartable {
         final CoverageSourceFileAnalysis csfa = this.coverageSourceFileAnalysis;
         if (null == csfa)
             return null;
-        List<JSCoverageResult> results = this.coverageSourceFileAnalysis.getCoverageRelativeResultElement(this)
+        Map<String, List<JSCoverageResult>> results = csfa.getCoverageRelativeResultElement(this)
                 .stream()
-                .map(element -> new JSCoverageResult(element.getFilePath(), element.getRatioBean()))
-                .collect(Collectors.toList());
-        return new JSRelativeCoverageResult(csfa, csfa.resolveTargetVCS(this), results);
+                .collect(Collectors.toMap(CoverageRelativeResultElement::getFilePath,
+                        o -> o.getResults()
+                                .entrySet()
+                                .stream()
+                                .map(e -> new JSCoverageResult(e.getKey().getName(), e.getValue()))
+                                .collect(Collectors.toList())
+                        )
+                );
+        String title = csfa.getBranchCommitName() + " - " + csfa.getTargetBranchCommitName(this);
+        return new JSRelativeCoverageResult(title, results);
     }
 
     public CoverageSourceFileAnalysis getCoverageSourceFileAnalysis() {
@@ -691,45 +698,19 @@ public class CoverageResult implements Serializable, Chartable {
 
     public static class JSRelativeCoverageResult {
 
-        private String branch;
-        private String commit;
-        private String targetBranch;
-        private String targetCommit;
-        private List<CoverageResult.JSCoverageResult> results;
+        private String title;
+        private Map<String, List<JSCoverageResult>> results;
 
-        public JSRelativeCoverageResult(CoverageSourceFileAnalysis current, CoverageSourceFileAnalysis target, List<CoverageResult.JSCoverageResult> results) {
-            if (current != null) {
-                this.branch = current.getBranchName();
-                this.commit = current.getLastCommitName().substring(0, 8);
-            }
-            if (target != null) {
-                this.targetBranch = target.getBranchName();
-                if (target.getLastCommitName() == null || target.getLastCommitName().length() <= 8) {
-                    this.targetCommit = target.getLastCommitName();
-                } else {
-                    this.targetCommit = target.getLastCommitName().substring(0, 8);
-                }
-            }
+        public JSRelativeCoverageResult(String title, Map<String, List<JSCoverageResult>> results) {
+            this.title = title;
             this.results = results;
         }
 
-        public String getBranch() {
-            return branch;
+        public String getTitle() {
+            return title;
         }
 
-        public String getCommit() {
-            return commit;
-        }
-
-        public String getTargetBranch() {
-            return targetBranch;
-        }
-
-        public String getTargetCommit() {
-            return targetCommit;
-        }
-
-        public List<CoverageResult.JSCoverageResult> getResults() {
+        public Map<String, List<JSCoverageResult>> getResults() {
             return results;
         }
     }
