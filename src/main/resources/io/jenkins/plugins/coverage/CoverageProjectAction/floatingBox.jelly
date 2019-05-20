@@ -7,21 +7,6 @@
     <j:set var="lastResult" value="${from.getLastResult().getResult()}"/>
     <j:if test="${lastResult != null}">
         <div align="bottom">
-            <j:if test="${lastResult.previousResult != null}">
-                <j:if test="${lastResult.coverageRelativeResult.getElements().size() != 0}">
-                    <div id="relativeSummaryChart" style="width:600px;height:100%;">
-                    </div>
-                    <script>
-                        var instance =<st:bind value="${lastResult}"/>;
-
-                        var coverageChartGenerator = new CoverageChartGenerator()
-                        instance.getCoverageRelativeResult(function(t) {
-                        var rd = t.responseObject();
-                        coverageChartGenerator.generateRelativeSummaryChart(rd.results, 'relativeSummaryChart', "Relative Summary", rd.title)
-                        });
-                    </script>
-                </j:if>
-            </j:if>
             <div class="test-trend-caption">
                 ${%Code Coverage}
             </div>
@@ -38,6 +23,21 @@
                 coverageChartGenerator.generateSummaryChart(results, 'summaryChart', name)
                 });
             </script>
+            <j:if test="${lastResult.previousResult != null}">
+                <j:if test="${lastResult.coverageRelativeResult.getElements().size() != 0}">
+                    <div id="relativeSummaryChart" style="width:800px;height:100%;">
+                    </div>
+                    <script>
+                        var instance =<st:bind value="${lastResult}"/>;
+
+                        var coverageChartGenerator = new CoverageChartGenerator()
+                        instance.getCoverageRelativeResult(function(t) {
+                        var rd = t.responseObject();
+                        coverageChartGenerator.generateRelativeSummaryChart(rd.results, 'relativeSummaryChart', "Relative Summary", rd.title)
+                        });
+                    </script>
+                </j:if>
+            </j:if>
         </div>
     </j:if>
 </j:jelly>
