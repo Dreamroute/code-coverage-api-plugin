@@ -71,7 +71,9 @@ public class JavaCoverageParser extends CoverageParser {
             case "file":
                 result = new CoverageResult(CoverageElement.get("File"), parentResult,
                         getAttribute(current, "name", ""));
-                result.setRelativeSourcePath(getAttribute(current, "name", null));
+                //  relative resource path is {Java package path}/{file name}
+                String relativeResourcePath = parentResult.getName() + "/" + result.getName();
+                result.setRelativeSourcePath(relativeResourcePath);
                 break;
             case "class":
                 result = new CoverageResult(CoverageElement.get("Class"), parentResult,
