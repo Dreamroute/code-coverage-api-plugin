@@ -573,7 +573,7 @@ public class CoverageResult implements Serializable, Chartable {
             } else if (token.equals("result")) {
                 return new RestResultWrapper(this);
             } else if (token.equals("relative")) {
-                return new RestResultWrapper(this.getCoverageRelativeResult());
+                return new RestResultWrapper(this.getCoverageRelativeResult(req));
             }
         }
 
@@ -702,10 +702,20 @@ public class CoverageResult implements Serializable, Chartable {
         return results;
     }
 
-    public CoverageRelativeResult getCoverageRelativeResult() {
-        List<CoverageRelativeResultElement> list = null == coverageSourceFileAnalysis
-                ? Collections.emptyList()
-                : this.coverageSourceFileAnalysis.getCoverageRelativeResultElement(this);
+    public CoverageRelativeResult getCoverageRelativeResult(StaplerRequest req) {
+        CoverageSourceFileAnalysis csfa = this.coverageSourceFileAnalysis;
+        List<CoverageRelativeResultElement> list;
+        if (null == csfa) {
+            list = Collections.emptyList();
+        } else if (req.hasParameter("old") && req.hasParameter("new")) {
+            String oldCommit = req.getParameter("old");
+            String newCommit = req.getParameter("new");
+            String rootPath = req.hasParameter("root") ? req.getParameter("level") : csfa.getRootPath();
+            CoverageElement level = req.hasParameter("level") ? CoverageElement.get(req.getParameter("level")) : CoverageElement.CONDITIONAL;
+            list = csfa.analysisGitCommitImpl(this, rootPath, level, oldCommit, newCommit);
+        } else {
+            list = csfa.getCoverageRelativeResultElement(this);
+        }
         return new CoverageRelativeResult(this.name, list);
     }
 

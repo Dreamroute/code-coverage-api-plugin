@@ -4,7 +4,9 @@ import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -41,8 +43,15 @@ public class CoverageRelativeResultElement implements Serializable {
         return relativeSourcePath;
     }
 
-    @Exported
     public Map<CoverageElement, Ratio> getResults() {
         return results;
+    }
+
+    @Exported
+    public List<CoverageTreeElement> getCoverageResults() {
+        return results.entrySet()
+                .stream()
+                .map(entry -> new CoverageTreeElement(entry.getKey(), entry.getValue()))
+                .collect(Collectors.toList());
     }
 }
