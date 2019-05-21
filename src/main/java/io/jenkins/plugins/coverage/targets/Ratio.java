@@ -34,6 +34,9 @@ import java.text.NumberFormat;
  * @author Kohsuke Kawaguchi
  */
 final public class Ratio implements Serializable {
+
+    public static final Ratio ZERO = Ratio.create(0.0F, 0.0F);
+
     public final float numerator;
     public final float denominator;
 

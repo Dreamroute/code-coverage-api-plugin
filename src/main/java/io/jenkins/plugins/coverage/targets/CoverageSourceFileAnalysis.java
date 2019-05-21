@@ -110,12 +110,15 @@ public class CoverageSourceFileAnalysis implements Serializable {
         String lastVcsCommitName = csfa.getLastCommitName();
         if (null == lastVcsCommitName)
             return Collections.emptyList();
+        return analysisGitCommitImpl(report, csfa.getRootPath(), csfa.getLevel(), csfa.getTargetLastCommitName(report), lastVcsCommitName);
+    }
 
-        List<SourceCodeFile> scbInfo = JGitUtil.analysisAddCodeBlock(csfa.getRootPath(), csfa.getTargetLastCommitName(report), lastVcsCommitName);
+    public List<CoverageRelativeResultElement> analysisGitCommitImpl(CoverageResult report, String rootPath, CoverageElement level, String oldCommit, String newCommit) {
+        List<SourceCodeFile> scbInfo = JGitUtil.analysisAddCodeBlock(rootPath, oldCommit, newCommit);
         if (scbInfo == null || scbInfo.isEmpty())
             return Collections.emptyList();
 
-        return report.getChildrenResults()
+        List<CoverageRelativeResultElement> list = report.getChildrenResults()
                 .parallelStream()
                 .filter(cr -> CoverageElement.FILE.equals(cr.getElement()))
                 .filter(cr -> cr.getPaint() != null)
@@ -131,14 +134,14 @@ public class CoverageSourceFileAnalysis implements Serializable {
                                     ).toArray();
                             //  absolute coverage
                             Map<CoverageElement, Ratio> results = new TreeMap<>();
-                            Ratio crHitRatio = analysisLogicHitCoverage(cr.getPaint(), csfa.getLevel(), cr.getPaint().lines.keys());
+                            Ratio crHitRatio = analysisLogicHitCoverage(cr.getPaint(), level, cr.getPaint().lines.keys());
                             results.put(CoverageElement.ABSOLUTE, crHitRatio);
                             //  newly code coverage
-                            results.put(CoverageElement.RELATIVE, analysisLogicHitCoverage(cr.getPaint(), csfa.getLevel(), lines));
+                            results.put(CoverageElement.RELATIVE, analysisLogicHitCoverage(cr.getPaint(), level, lines));
                             //  coverage change
                             CoverageResult pr = cr.getPreviousResult();
                             if (pr != null) {
-                                Ratio prHitRatio = analysisLogicHitCoverage(pr.getPaint(), csfa.getLevel(), pr.getPaint().lines.keys());
+                                Ratio prHitRatio = analysisLogicHitCoverage(pr.getPaint(), level, pr.getPaint().lines.keys());
                                 if (prHitRatio.numerator != 0.0F) {
                                     results.put(CoverageElement.CHANGE, Ratio.create(crHitRatio.getPercentageFloat() - prHitRatio.getPercentageFloat(), 100.0F));
                                 }
@@ -149,6 +152,22 @@ public class CoverageSourceFileAnalysis implements Serializable {
                 )
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+
+        //  Current Commit's Overview
+        Map<CoverageElement, Ratio> overviewMap = list.stream()
+                .map(re -> re.getResults().get(CoverageElement.RELATIVE))
+                .filter(Objects::nonNull)
+                .reduce((r1, r2) -> Ratio.create(r1.numerator + r2.numerator, r1.denominator + r2.denominator))
+                .map(ratio -> {
+                    Map<CoverageElement, Ratio> results = new TreeMap<>();
+                    results.put(CoverageElement.ABSOLUTE, Ratio.ZERO);
+                    results.put(CoverageElement.RELATIVE, ratio);
+                    results.put(CoverageElement.CHANGE, Ratio.ZERO);
+                    return results;
+                })
+                .orElse(Collections.emptyMap());
+        list.add(0, new CoverageRelativeResultElement("Current Commit Overview", "Current Commit Overview", overviewMap));
+        return list;
     }
 
     /**
@@ -169,11 +188,12 @@ public class CoverageSourceFileAnalysis implements Serializable {
             long missedBranch = Arrays.stream(judgedLines)
                     .parallel()
                     .map(line -> {
-                        int covered = paint.getBranchCoverage(line);
-                        if (covered <= 0 && paint.getHits(line) > 0)
-                            return 0;
-                        else
-                            return paint.getBranchTotal(line) - covered;
+                        int branchTotal = paint.getBranchTotal(line);
+                        if (branchTotal > 0) {
+                            return branchTotal - paint.getBranchCoverage(line);
+                        } else {
+                            return paint.getHits(line) > 0 ? 0 : 1;
+                        }
                     })
                     .sum();
             long coveredBranch = Arrays.stream(judgedLines)
