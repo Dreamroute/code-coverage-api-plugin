@@ -110,6 +110,8 @@ public class CoverageResult implements Serializable, Chartable {
 
     private CoverageSourceFileAnalysis coverageSourceFileAnalysis;
 
+    private List<CoverageRelativeResultElement> csfaReport = null;
+
     public transient Run<?, ?> owner = null;
 
     public CoverageResult(CoverageElement elementType, CoverageResult parent, String name) {
@@ -448,6 +450,10 @@ public class CoverageResult implements Serializable, Chartable {
         return aggregateResults.get(element);
     }
 
+    public Ratio getAbsoluteCodeCoverage() {
+        return aggregateResults.get(CoverageElement.LINE)
+                .add(aggregateResults.get(CoverageElement.CONDITIONAL));
+    }
 
     public Set<CoverageElement> getElements() {
         return Collections.unmodifiableSet(
@@ -702,6 +708,16 @@ public class CoverageResult implements Serializable, Chartable {
         return results;
     }
 
+    public List<CoverageRelativeResultElement> getCsfaReport() {
+        CoverageSourceFileAnalysis csfa = this.coverageSourceFileAnalysis;
+        if (null == csfaReport && csfa != null) {
+            this.csfaReport = csfa.getCoverageRelativeResultElement(this);
+        }
+        return this.csfaReport == null
+                ? Collections.emptyList()
+                : csfaReport;
+    }
+
     public CoverageRelativeResult getCoverageRelativeResult(StaplerRequest req) {
         CoverageSourceFileAnalysis csfa = this.coverageSourceFileAnalysis;
         List<CoverageRelativeResultElement> list;
@@ -714,7 +730,7 @@ public class CoverageResult implements Serializable, Chartable {
             CoverageElement level = req.hasParameter("level") ? CoverageElement.get(req.getParameter("level")) : CoverageElement.CONDITIONAL;
             list = csfa.analysisGitCommitImpl(this, rootPath, level, oldCommit, newCommit);
         } else {
-            list = csfa.getCoverageRelativeResultElement(this);
+            list = getCsfaReport();
         }
         return new CoverageRelativeResult(this.name, list);
     }
@@ -725,7 +741,7 @@ public class CoverageResult implements Serializable, Chartable {
         final CoverageSourceFileAnalysis csfa = this.coverageSourceFileAnalysis;
         if (null == csfa)
             return null;
-        Map<String, List<JSCoverageResult>> results = csfa.getCoverageRelativeResultElement(this)
+        Map<String, List<JSCoverageResult>> results = getCsfaReport()
                 .stream()
                 .collect(Collectors.toMap(CoverageRelativeResultElement::getFilePath,
                         o -> o.getResults()

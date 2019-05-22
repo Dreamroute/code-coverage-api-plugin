@@ -160,9 +160,17 @@ public class CoverageSourceFileAnalysis implements Serializable {
                 .reduce((r1, r2) -> Ratio.create(r1.numerator + r2.numerator, r1.denominator + r2.denominator))
                 .map(ratio -> {
                     Map<CoverageElement, Ratio> results = new TreeMap<>();
-                    results.put(CoverageElement.ABSOLUTE, Ratio.ZERO);
+
+                    Ratio coverage = report.getAbsoluteCodeCoverage();
+                    results.put(CoverageElement.ABSOLUTE, coverage);
                     results.put(CoverageElement.RELATIVE, ratio);
-                    results.put(CoverageElement.CHANGE, Ratio.ZERO);
+                    //
+                    CoverageResult previousResult = report.getPreviousResult();
+                    if (previousResult != null) {
+                        Ratio changed = Ratio.create(coverage.getPercentageFloat() - previousResult.getAbsoluteCodeCoverage().getPercentageFloat(), 100.0F);
+                        results.put(CoverageElement.CHANGE, changed);
+                    }
+
                     return results;
                 })
                 .orElse(Collections.emptyMap());

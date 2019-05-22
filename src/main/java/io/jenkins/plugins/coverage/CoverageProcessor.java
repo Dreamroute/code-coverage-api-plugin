@@ -114,6 +114,7 @@ public class CoverageProcessor {
             } else {
                 CoverageSourceFileAnalysis sourceAnalysis = this.sourceFileCoverageAnalysisResolver.resolveCoverageSourceFileVCS(run, workspace, listener, rootFilePath.getRemote(), sourceFileCoverageAnalysisResolver);
                 coverageReport.setCoverageSourceFileAnalysis(sourceAnalysis);
+                coverageReport.getCsfaReport();
             }
         }
 

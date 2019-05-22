@@ -169,4 +169,18 @@ final public class Ratio implements Serializable {
 
         return new Ratio(x, y);
     }
+
+    /**
+     * @return @return {@code this + subtrahend}
+     */
+    public Ratio add(Ratio augend) {
+        return create(this.numerator + augend.numerator, this.denominator + augend.denominator);
+    }
+
+    /**
+     * @return @return {@code this - subtrahend}
+     */
+    public Ratio subtract(Ratio subtrahend) {
+        return create(this.numerator - subtrahend.numerator, this.denominator - subtrahend.denominator);
+    }
 }
