@@ -544,7 +544,7 @@ var CoverageChartGenerator = function () {
                         data: []
                     }
                 }
-                series[metricIndex].data.push(ratio.percentage);
+                series[metricIndex].data.push(ratio.percentageFloat);
 
             });
 
